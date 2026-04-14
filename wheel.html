@@ -7,50 +7,47 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         #wheel {
-            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
+            transition: transform 5s cubic-bezier(0.15, 0, 0.15, 1);
         }
-        .wheel-container {
-            width: 300px;
-            height: 300px;
-            position: relative;
-        }
-        /* 指針 */
+        .wheel-container { width: 320px; height: 320px; position: relative; }
         .pointer {
-            position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
+            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
             width: 0; height: 0;
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-top: 30px solid #ef4444;
-            z-index: 10;
+            border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-top: 30px solid #ef4444; z-index: 20;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
         }
+        /* 結果彈窗樣式 */
+        #resultPopup { transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center p-6 min-h-screen">
 
-    <h1 class="text-2xl font-bold mb-8 text-gray-800">今天吃甚麼</h1>
+    <h1 class="text-2xl font-bold mb-8 text-gray-800">🎡今天吃甚麼</h1>
 
     <div class="wheel-container mb-8">
         <div class="pointer"></div>
-        <canvas id="wheel" width="300" height="300" class="rounded-full border-4 border-white shadow-2xl"></canvas>
+        <canvas id="wheel" width="320" height="320" class="rounded-full border-4 border-white shadow-2xl"></canvas>
     </div>
 
-    <button onclick="spinWheel()" id="spinBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-10 rounded-full shadow-lg text-xl mb-8 active:scale-95 transition">
+    <button onclick="spinWheel()" id="spinBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-10 rounded-full shadow-lg text-xl mb-8 active:scale-95 transition">
         開始旋轉
     </button>
 
+    <div id="resultPopup" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl p-8 text-center shadow-2xl transform scale-90 animate-pop-up">
+            <div class="text-5xl mb-4">🎉</div>
+            <h2 class="text-xl text-gray-500 mb-2">恭喜抽中</h2>
+            <div id="resultText" class="text-3xl font-black text-indigo-600 mb-6"></div>
+            <button onclick="closePopup()" class="bg-gray-800 text-white px-8 py-2 rounded-full font-bold">太棒了！</button>
+        </div>
+    </div>
+
     <div class="w-full max-w-sm bg-white rounded-2xl p-6 shadow-md">
-        <h3 class="font-bold mb-4 flex justify-between">
-            <span>編輯轉盤內容</span>
-            <span id="itemCount" class="text-gray-400 text-sm"></span>
-        </h3>
-        <div id="itemList" class="space-y-2 mb-4 max-h-48 overflow-y-auto">
-            </div>
+        <div id="itemList" class="space-y-2 mb-4"></div>
         <div class="flex gap-2">
-            <input id="newItem" type="text" placeholder="新增選項..." class="flex-1 border p-2 rounded-lg">
-            <button onclick="addItem()" class="bg-blue-600 text-white px-4 py-2 rounded-lg">加入</button>
+            <input id="newItem" type="text" placeholder="新增選項..." class="flex-1 border p-2 rounded-lg outline-none focus:border-indigo-500">
+            <button onclick="addItem()" class="bg-indigo-500 text-white px-4 py-2 rounded-lg">加入</button>
         </div>
     </div>
 
@@ -67,25 +64,25 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             items.forEach((item, i) => {
-                const startAngle = i * anglePerSegment;
-                const endAngle = (i + 1) * anglePerSegment;
+                const startAngle = i * anglePerSegment - Math.PI / 2; // 偏移 90 度讓第一個選項在上面
+                const endAngle = (i + 1) * anglePerSegment - Math.PI / 2;
 
-                // 畫扇形
                 ctx.beginPath();
-                ctx.moveTo(150, 150);
-                ctx.arc(150, 150, 150, startAngle, endAngle);
+                ctx.moveTo(160, 160);
+                ctx.arc(160, 160, 160, startAngle, endAngle);
                 ctx.fillStyle = `hsl(${(i * 360) / numSegments}, 70%, 65%)`;
                 ctx.fill();
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // 畫文字
                 ctx.save();
-                ctx.translate(150, 150);
+                ctx.translate(160, 160);
                 ctx.rotate(startAngle + anglePerSegment / 2);
                 ctx.textAlign = "right";
                 ctx.fillStyle = "white";
                 ctx.font = "bold 16px sans-serif";
-                ctx.fillText(item, 140, 10);
+                ctx.fillText(item, 150, 10);
                 ctx.restore();
             });
             updateItemList();
@@ -94,20 +91,37 @@
         function spinWheel() {
             if (isSpinning || items.length < 2) return;
             isSpinning = true;
-            
-            // 隨機旋轉圈數 (至少 5 圈) + 隨機角度
+
             const extraDegree = Math.floor(Math.random() * 360);
-            const totalSpin = 1800 + extraDegree; 
+            const totalSpin = 1800 + extraDegree; // 旋轉 5 圈以上
             currentRotation += totalSpin;
 
             canvas.style.transform = `rotate(${currentRotation}deg)`;
 
+            // 旋轉結束後的處理 (5秒是 CSS transition 的時間)
             setTimeout(() => {
                 isSpinning = false;
-                alert("結果出爐！");
-            }, 4000);
+                
+                // 計算結果
+                const actualDegree = currentRotation % 360;
+                // 因為轉盤是順時針轉，但計算角度是逆時針，且指針在上方(270度位置)
+                const segmentAngle = 360 / items.length;
+                const winningIndex = Math.floor((360 - actualDegree % 360) / segmentAngle) % items.length;
+                
+                showResult(items[winningIndex]);
+            }, 5000);
         }
 
+        function showResult(result) {
+            document.getElementById('resultText').innerText = result;
+            document.getElementById('resultPopup').classList.remove('hidden');
+        }
+
+        function closePopup() {
+            document.getElementById('resultPopup').classList.add('hidden');
+        }
+
+        // --- 增刪功能同前 ---
         function addItem() {
             const input = document.getElementById('newItem');
             if (input.value.trim()) {
@@ -116,15 +130,12 @@
                 saveAndRender();
             }
         }
-
         function deleteItem(index) {
             items.splice(index, 1);
             saveAndRender();
         }
-
         function updateItemList() {
             const list = document.getElementById('itemList');
-            document.getElementById('itemCount').innerText = `${items.length} 個選項`;
             list.innerHTML = items.map((item, index) => `
                 <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
                     <span class="text-sm">${item}</span>
@@ -132,7 +143,6 @@
                 </div>
             `).join('');
         }
-
         function saveAndRender() {
             localStorage.setItem('wheelItems', JSON.stringify(items));
             drawWheel();
