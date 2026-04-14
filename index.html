@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 財經行事曆</title>
+    <script src="https://cdn.tailwindcss.com"></script> <style>
+        .dot { height: 6px; width: 6px; border-radius: 50%; display: inline-block; }
+        .bg-personal { background-color: #3B82F6; } /* 藍色 */
+        .bg-work { background-color: #10B981; }     /* 綠色 */
+        .bg-important { background-color: #EF4444; } /* 紅色 */
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+
+    <div class="flex justify-between items-center mb-6">
+        <button onclick="changeMonth(-1)" class="p-2 bg-white rounded-full shadow">◀</button>
+        <h2 id="monthDisplay" class="text-xl font-bold text-gray-800">2026年 4月</h2>
+        <button onclick="changeMonth(1)" class="p-2 bg-white rounded-full shadow">▶</button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
+        <div class="grid grid-cols-7 bg-gray-100 text-center py-2 text-sm font-semibold text-gray-500">
+            <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        </div>
+        <div id="calendarGrid" class="grid grid-cols-7 text-center border-t border-gray-100">
+            </div>
+    </div>
+
+    <div class="flex justify-end mb-4">
+        <button onclick="openModal()" class="bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg">+ 新增事件</button>
+    </div>
+
+    <div class="bg-white rounded-2xl p-4 shadow-md">
+        <h3 class="font-bold mb-3 text-gray-700">📋 待辦事件</h3>
+        <div id="eventList" class="space-y-2 text-sm">
+            <p class="text-gray-400 italic">點擊日期查看事件...</p>
+        </div>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <h3 class="font-bold text-lg mb-4">新增事件</h3>
+            <input id="eventTitle" type="text" placeholder="事件名稱" class="w-full border p-2 rounded mb-3">
+            <select id="eventCategory" class="w-full border p-2 rounded mb-4">
+                <option value="personal">個人 (藍)</option>
+                <option value="work">工作 (綠)</option>
+                <option value="important">重要 (紅)</option>
+            </select>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeModal()" class="px-4 py-2 text-gray-500">取消</button>
+                <button onclick="saveEvent()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let date = new Date();
+        let selectedDate = "";
+        // 從 LocalStorage 讀取資料，沒資料就空陣列
+        let events = JSON.parse(localStorage.getItem('myEvents')) || [];
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const display = document.getElementById('monthDisplay');
+            grid.innerHTML = '';
+            
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            display.innerText = `${year}年 ${month + 1}月`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // 填充空格
+            for (let i = 0; i < firstDay; i++) {
+                grid.innerHTML += `<div class="py-4 border-b border-r border-gray-50"></div>`;
+            }
+
+            // 生成日期
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const hasEvent = events.some(e => e.date === dateStr);
+                grid.innerHTML += `
+                    <div onclick="selectDay('${dateStr}')" class="py-4 border-b border-r border-gray-50 relative cursor-pointer hover:bg-blue-50">
+                        <span class="${dateStr === selectedDate ? 'bg-blue-600 text-white rounded-full px-2' : ''}">${d}</span>
+                        ${hasEvent ? '<div class="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1"><span class="dot bg-gray-400"></span></div>' : ''}
+                    </div>`;
+            }
+        }
+
+        function changeMonth(offset) {
+            date.setMonth(date.getMonth() + offset);
+            renderCalendar();
+        }
+
+        function selectDay(d) {
+            selectedDate = d;
+            renderCalendar();
+            showEvents(d);
+        }
+
+        function showEvents(d) {
+            const list = document.getElementById('eventList');
+            const dayEvents = events.filter(e => e.date === d);
+            if (dayEvents.length === 0) {
+                list.innerHTML = `<p class="text-gray-400">當天沒有事件</p>`;
+                return;
+            }
+            list.innerHTML = dayEvents.map((e, index) => `
+                <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
+                    <span><span class="dot bg-${e.category} mr-2"></span>${e.title}</span>
+                    <button onclick="deleteEvent('${d}', ${index})" class="text-red-400 text-xs">刪除</button>
+                </div>
+            `).join('');
+        }
+
+        function openModal() {
+            if (!selectedDate) return alert('請先點選一個日期');
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        function saveEvent() {
+            const title = document.getElementById('eventTitle').value;
+            const category = document.getElementById('eventCategory').value;
+            if (!title) return;
+            
+            events.push({ date: selectedDate, title, category });
+            localStorage.setItem('myEvents', JSON.stringify(events));
+            document.getElementById('eventTitle').value = '';
+            closeModal();
+            renderCalendar();
+            showEvents(selectedDate);
+        }
+
+        function deleteEvent(d, index) {
+            const eventIdx = events.findIndex(e => e.date === d); // 簡化版刪除邏輯
+            events.splice(eventIdx + index, 1);
+            localStorage.setItem('myEvents', JSON.stringify(events));
+            renderCalendar();
+            showEvents(d);
+        }
+
+        renderCalendar();
+    </script>
+</body>
+</html>
